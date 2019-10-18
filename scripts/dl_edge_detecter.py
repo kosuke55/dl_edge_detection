@@ -13,22 +13,23 @@ import cv2
 
 class Dl_edge_detector():
     def __init__(self):
-        self.bridge = CvBridge()
-        self.pub = rospy.Publisher("/dl_detected_edge", Image, queue_size=1)
         self.INPUT_IMAGE = rospy.get_param(
             '~input_image', "/head_mount_kinect/hd/image_color_rect_desktop")
         self.prototxt = rospy.get_param(
             '~prototxt', "deploy.prototxt")
         self.caffemodel = rospy.get_param(
             '~caffemodel', "hed_pretrained_bsds.caffemodel")
+        self.resize = rospy.get_param(
+            '~resize', True)
         self.width = rospy.get_param(
-            '~width', 500)
+            '~width', 1000)
         self.height = rospy.get_param(
-            '~height', 500)
-
-        self.subscribe()
+            '~height', 1000)
         self.net = cv2.dnn.readNet(self.prototxt, self.caffemodel)
         cv2.dnn_registerLayer('Crop', CropLayer)
+        self.bridge = CvBridge()
+        self.pub = rospy.Publisher("/dl_detected_edge", Image, queue_size=1)
+        self.subscribe()
 
     def subscribe(self):
         self.image_sub = rospy.Subscriber(self.INPUT_IMAGE,
@@ -36,11 +37,17 @@ class Dl_edge_detector():
                                           self.callback)
 
     def callback(self, msg):
+        rospy.loginfo("dl_edge_detction")
         img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-        print(img.shape)
+        if(self.resize):
+            size = (self.width, self.height)
+        else:
+            size = (img.shape[0], img.shape[1])
         inp = cv2.dnn.blobFromImage(img, scalefactor=1.0,
-                                    size=(self.width, self.height),
-                                    mean=(104.00698793, 116.66876762, 122.67891434),
+                                    size=size,
+                                    mean=(104.00698793,
+                                          116.66876762,
+                                          122.67891434),
                                     swapRB=False, crop=False)
         self.net.setInput(inp)
         out = self.net.forward()
